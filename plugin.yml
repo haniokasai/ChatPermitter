@@ -1,0 +1,8 @@
+name: ChatPermitter
+main: haniokasai\chatpermitter
+version: 0.0.1
+api: [1.1.0]
+load: POSTWORLD
+author: haniokasai
+description: Restrict chat plugin for mirm
+website: haniokasai.cpm
