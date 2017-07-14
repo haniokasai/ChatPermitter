@@ -38,7 +38,7 @@ class chatpermitter extends PluginBase implements Listener
             array("player名"=>"日付",
                 "@chaturl"=>"http://mirm.mcpe.xyz/chat/viewkey.php",
                 "@deleteurl"=>"http://mirm.mcpe.xyz/chat/removekey.php",
-                "@deleteday"=>7)
+                "@deleteday"=>3)
         );
 
         global $chaturl;
