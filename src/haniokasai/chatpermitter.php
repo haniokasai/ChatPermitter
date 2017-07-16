@@ -8,10 +8,9 @@
 
 namespace haniokasai;
 
-use pocketmine\command\Command;
-use pocketmine\command\CommandSender;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerChatEvent;
+use pocketmine\event\player\PlayerCommandPreprocessEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\Player;
 use pocketmine\scheduler\AsyncTask;
@@ -74,23 +73,46 @@ class chatpermitter extends PluginBase implements Listener
         }
     }
 
-    public function onChat(PlayerChatEvent $event){
-        global  /** @var array $chatplayers */
+    public function onChat(PlayerChatEvent $event)
+    {
+        global /** @var array $chatplayers */
         $chatplayers;
 
-        global $chaturl,$delete_url;
+        global $chaturl, $delete_url;
         $name = $event->getPlayer()->getName();
-        if(!$chatplayers[$name]){
+        if (!$chatplayers[$name]) {
             echo $event->getMessage();
-            if(strlen($event->getMessage())==5){
+            if (strlen($event->getMessage()) == 5) {
                 $code = preg_replace('/[^a-z]/', '', $event->getMessage());
-                $this->getServer()->getScheduler()->scheduleAsyncTask($job4 = new thread_getdata($code,$name,$delete_url));
-            }else{
+                $this->getServer()->getScheduler()->scheduleAsyncTask($job4 = new thread_getdata($code, $name, $delete_url));
+            } else {
                 $event->getPlayer()->sendMessage("[ChatPermitter] チャットをするには、{$chaturl}にアクセスして、そこで得たキーをチャットに直接入力してください");
             }
             $event->setCancelled();
         }
     }
+
+
+    public function onCmd(PlayerCommandPreprocessEvent $event){
+        $player=$event->getPlayer();
+        if($event->getMessage())
+        global /** @var array $chatplayers */
+        $chatplayers;
+
+        global $chaturl;
+        $name = $player->getName();
+        $message = $event->getMessage();
+        $command = substr($message, 1);
+        $args = explode(" ", $command);
+        switch ($args[0]) {
+            case "me":
+                if (!$chatplayers[$name]) {
+                    $player->sendMessage("[ChatPermitter] このコマンドを使うには、{$chaturl}にアクセスして、そこで得たキーをチャットに直接入力してください");
+                    $event->setCancelled(true);
+                }
+        }
+
+        }
 
     }
 
