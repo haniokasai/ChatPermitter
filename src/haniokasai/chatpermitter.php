@@ -35,7 +35,7 @@ class chatpermitter extends PluginBase implements Listener
         global $config_pl;//マップの名前と座標を入力します。
         $config_pl = new Config($this->getDataFolder() . "config.yml", Config::YAML,
             array("player名"=>"日付",
-                "@chaturl"=>"http://mirm.mcpe.xyz/chat/viewkey.php",
+                "@chaturl"=>"http://mirm.info/viewkey.php",
                 "@deleteurl"=>"http://mirm.mcpe.xyz/chat/removekey.php",
                 "@deleteday"=>3)
         );
