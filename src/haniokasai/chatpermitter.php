@@ -18,6 +18,10 @@ use pocketmine\Server;
 use pocketmine\plugin\PluginBase;
 use pocketmine\utils\Config;
 
+use pocketmine\event\server\DataPacketReceiveEvent;
+use pocketmine\network\mcpe\protocol\ModalFormRequestPacket;
+use pocketmine\network\mcpe\protocol\ModalFormResponsePacket;
+
 class chatpermitter extends PluginBase implements Listener
 {
     /**
@@ -28,62 +32,63 @@ class chatpermitter extends PluginBase implements Listener
         Server::getInstance()->getLogger()->info("[ChatPermitter]　読み込み中");
         Server::getInstance()->getPluginManager()->registerEvents($this, $this);
 
-        if(!file_exists($this->getDataFolder())){//configを入れるフォルダが有るかチェック
+        if (!file_exists($this->getDataFolder())) {//configを入れるフォルダが有るかチェック
             mkdir($this->getDataFolder(), 0744, true);//なければフォルダを作成
         }
 
-        $def_chaturl="https://mirm.info/viewkey.php";
-        $def_deleteurl="https://mirm.info/chat/removekey.php";
-        $def_deleteday=3;
+        $def_chaturl = "https://mirm.info/viewkey.php";
+        $def_deleteurl = "https://mirm.info/chat/removekey.php";
+        $def_deleteday = 3;
         global $config_pl;//マップの名前と座標を入力します。
         $config_pl = new Config($this->getDataFolder() . "config.yml", Config::YAML,
-            array("player名"=>"日付",
-                "@config_enable"=>false,
-                "@chaturl"=>$def_chaturl,
-                "@deleteurl"=>$def_deleteurl,
-                "@deleteday"=>$def_deleteday)
+            array("player名" => "日付",
+                "@config_enable" => false,
+                "@chaturl" => $def_chaturl,
+                "@deleteurl" => $def_deleteurl,
+                "@deleteday" => $def_deleteday)
         );
 
         $configenable = false;
-        if($config_pl->exists("@config_enable")){
-            if($config_pl->get("@config_enable"==false)){
+        if ($config_pl->exists("@config_enable")) {
+            if ($config_pl->get("@config_enable" == false)) {
                 $configenable = false;
-            }else{
+            } else {
                 $configenable = true;
             }
-        }else{
+        } else {
             $configenable = false;
         }
         global $chaturl;
-        $chaturl =  $configenable?$config_pl->get("@chaturl"):$def_chaturl;
+        $chaturl = $configenable ? $config_pl->get("@chaturl") : $def_chaturl;
 
         global $delete_url;
-        $delete_url = $configenable?$config_pl->get("@deleteurl"):$def_deleteurl;
+        $delete_url = $configenable ? $config_pl->get("@deleteurl") : $def_deleteurl;
 
         global $delete_day;
-        $delete_day = $configenable?$config_pl->get("@deleteday"):$def_deleteday;
+        $delete_day = $configenable ? $config_pl->get("@deleteday") : $def_deleteday;
 
         global $chatplayers;
         $chatplayers = array();
     }
 
-    public function JoinEv(PlayerJoinEvent $event){
+    public function JoinEv(PlayerJoinEvent $event)
+    {
         global /** @var Config $config_pl */
         $config_pl;
-        global  /** @var array $chatplayers */
+        global /** @var array $chatplayers */
         $chatplayers;
 
         global $delete_day;
 
         $name = $event->getPlayer()->getName();
-        if($config_pl->exists($name)){
-            if(time()-$config_pl->get($name) <= $delete_day*3600*24){
-                $chatplayers[$name]=true;
-            }else{
-                $chatplayers[$name]=false;
+        if ($config_pl->exists($name)) {
+            if (time() - $config_pl->get($name) <= $delete_day * 3600 * 24) {
+                $chatplayers[$name] = true;
+            } else {
+                $chatplayers[$name] = false;
             }
-        }else{
-            $chatplayers[$name]=false;
+        } else {
+            $chatplayers[$name] = false;
         }
     }
 
@@ -97,8 +102,7 @@ class chatpermitter extends PluginBase implements Listener
         if (!$chatplayers[$name]) {
             echo $event->getMessage();
             if (strlen($event->getMessage()) == 5) {
-                $code = preg_replace('/[^a-z]/', '', $event->getMessage());
-                $this->getServer()->getScheduler()->scheduleAsyncTask($job4 = new thread_getdata($code, $name, $delete_url));
+                $this->mirmDialog($event->getPlayer());
             } else {
                 $event->getPlayer()->sendMessage("[ChatPermitter] チャットをするには、{$chaturl}にアクセスして、そこで得たキーをチャットに直接入力してください");
             }
@@ -107,10 +111,11 @@ class chatpermitter extends PluginBase implements Listener
     }
 
 
-    public function onCmd(PlayerCommandPreprocessEvent $event){
-        $player=$event->getPlayer();
-        if($event->getMessage())
-        global /** @var array $chatplayers */
+    public function onCmd(PlayerCommandPreprocessEvent $event)
+    {
+        $player = $event->getPlayer();
+        if ($event->getMessage())
+            global /** @var array $chatplayers */
         $chatplayers;
 
         global $chaturl;
@@ -126,9 +131,81 @@ class chatpermitter extends PluginBase implements Listener
                 }
         }
 
-        }
-
     }
+
+
+    //packetdialog
+    public function mirmDialog(Player $player){
+        $pk = new ModalFormRequestPacket();
+
+        $pk->formId = 10000;
+
+        global $chaturl, $delete_url;
+        $pk->formData = "{
+                        \"type\": \"custom_form\",
+                        \"title\": \"§a§lMiRmチャット認証\",
+                        \"content\": [
+                            {
+                                \"type\": \"label\",
+                                \"text\": \"§cチャットをするためには認証キーが必要です。\n§c認証キーは{$chaturl}で取得できます。\"
+	                        },
+	                        {
+                                \"type\": \"input\",
+                                \"text\": \"認証キー\",
+                                \"placeholder\": \"haniokasai\",
+                                \"default\": \"\"
+	                        }
+                        ]
+                      }";
+
+        $player->dataPacket($pk);
+    }
+
+    public function onReceivePacket(DataPacketReceiveEvent $event){
+
+        $player = $event->getPlayer();
+
+        $pk = $event->getPacket();
+
+        $name = $player->getName();
+
+
+        if($pk instanceof ModalFormResponsePacket){
+
+            $id = $pk->formId;
+
+            $data = $pk->formData;
+
+            switch($id){
+
+                case 10000;
+
+                    $Fdata = json_decode($data, true);
+
+                    if($data === "null\n"){
+
+                        break;
+
+                    }elseif($Fdata[1] === ""){
+
+                        $player->sendMessage("§c>> 認証キーを入力してください");
+
+                        $this->mirmDialog($player);
+
+                        break;
+
+                    }
+                    global $chaturl, $delete_url;
+
+                    $code = preg_replace('/[^a-z]/', '', $Fdata[1]);
+                    $this->getServer()->getScheduler()->scheduleAsyncTask($job4 = new thread_getdata($code, $name, $delete_url));
+
+                    break;
+            }
+        }
+    }
+
+}
 
 /**
  * @property  String player
